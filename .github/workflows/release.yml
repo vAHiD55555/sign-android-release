@@ -1,4 +1,4 @@
-name: "test sign && update latest tag"
+name: "test sign"
 
 on:
   push:
