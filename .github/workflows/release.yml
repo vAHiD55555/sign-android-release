@@ -1,4 +1,4 @@
-name: "Tag & Deploy Action"
+name: "test sign && update latest tag"
 
 on:
   push:
@@ -8,50 +8,45 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Test action
+    name: test sign script
 
     steps:
-      - uses: actions/checkout@v1
-        name: Checkout code
+      - name: checkout code
+        uses: actions/checkout@v1
 
-      - name: Run tests
+      - name: get latest build tools version
+        id: sdk
+        run: |
+          echo version=$(ls $ANDROID_HOME/build-tools | tail -n 1) >> $GITHUB_OUTPUT
+
+      - name: set up environment
+        run: npm i --include=dev
+  
+      - name: test script
         run: npm run test
 
-      - uses: pCYSl5EDgo/cat@1.0.0
-        name: Cat for GitHub Actions
-        id: get_key
-        with:
-          path: __tests__/test_key_b64.txt
+      - name: get signing key
+        id: key
+        run: echo text=$(cat __tests__/test_key_b64.txt) >> $GITHUB_OUTPUT
 
-      - uses: ./
-        name: Sign APK
-        with:
-          releaseDirectory: __tests__/apk
-          signingKeyBase64: ${{ steps.get_key.outputs.text }}
-          alias: test_key
-          keyStorePassword: android
-          keyPassword: android
-
-      - uses: ./
-        name: Sign AAB
-        with:
-          releaseDirectory: __tests__/aab
-          signingKeyBase64: ${{ steps.get_key.outputs.text }}
-          alias: test_key
-          keyStorePassword: android
-          keyPassword: android
-
-  release:
-    needs: test
-    runs-on: ubuntu-latest
-    name: Update action
-
-    steps:
-      - uses: actions/checkout@v1
-        name: Checkout code
-
-      - name: Update v1 Tag
-        uses: hole19/git-tag-action@master
+      - name: sign apk
+        uses: ./
         env:
-          TAG: v1
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_TOOLS_VERSION: ${{steps.sdk.outputs.version}}
+        with:
+          alias: test_key
+          keyPassword: android
+          keyStorePassword: android
+          releaseDirectory: __tests__/apk
+          signingKeyBase64: ${{steps.key.outputs.text}}
+
+      - name: sign aab
+        uses: ./
+        env:
+          BUILD_TOOLS_VERSION: ${{steps.sdk.outputs.version}}
+        with:
+          alias: test_key
+          keyPassword: android
+          keyStorePassword: android
+          releaseDirectory: __tests__/aab
+          signingKeyBase64: ${{steps.key.outputs.text}}
